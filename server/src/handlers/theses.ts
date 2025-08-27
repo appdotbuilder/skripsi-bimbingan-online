@@ -5,6 +5,9 @@ import {
   type GetThesesByStudentInput,
   type GetThesesByLecturerInput
 } from '../schema';
+import { db } from '../db';
+import { thesesTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
 
 export async function createThesis(input: CreateThesisInput): Promise<Thesis> {
   // This is a placeholder declaration! Real code should be implemented here.
@@ -37,10 +40,17 @@ export async function updateThesis(input: UpdateThesisInput): Promise<Thesis> {
 }
 
 export async function getThesesByStudent(input: GetThesesByStudentInput): Promise<Thesis[]> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is to fetch all theses for a specific student
-  // Used in student dashboard to show their thesis progress
-  return Promise.resolve([]);
+  try {
+    const results = await db.select()
+      .from(thesesTable)
+      .where(eq(thesesTable.student_id, input.student_id))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to fetch theses for student:', error);
+    throw error;
+  }
 }
 
 export async function getThesesByLecturer(input: GetThesesByLecturerInput): Promise<Thesis[]> {
