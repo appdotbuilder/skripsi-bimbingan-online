@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { trpc } from '@/utils/trpc';
 import { useState, useEffect, useCallback } from 'react';
 import type { 
@@ -59,6 +60,7 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
   });
 
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [showAccFinalDialog, setShowAccFinalDialog] = useState(false);
 
   // Load lecturer profile
   const loadLecturer = useCallback(async () => {
@@ -180,6 +182,51 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
       await loadGuidanceSessions(selectedThesis!.id);
     } catch (error) {
       console.error('Failed to update session notes:', error);
+    }
+  };
+
+  // Handle start thesis (change status from PROPOSAL to IN_PROGRESS)
+  const handleStartThesis = async (thesisId: number) => {
+    if (!lecturer) return;
+    
+    setIsLoading(true);
+    try {
+      await trpc.updateThesis.mutate({
+        id: thesisId,
+        status: 'IN_PROGRESS'
+      });
+      await loadTheses(lecturer.id);
+      // Update selectedThesis if it's the same thesis
+      if (selectedThesis && selectedThesis.id === thesisId) {
+        setSelectedThesis(prev => prev ? { ...prev, status: 'IN_PROGRESS' } : null);
+      }
+    } catch (error) {
+      console.error('Failed to start thesis:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle complete thesis (change status to COMPLETED)
+  const handleCompleteThesis = async (thesisId: number) => {
+    if (!lecturer) return;
+    
+    setIsLoading(true);
+    try {
+      await trpc.updateThesis.mutate({
+        id: thesisId,
+        status: 'COMPLETED'
+      });
+      await loadTheses(lecturer.id);
+      setShowAccFinalDialog(false);
+      // Update selectedThesis if it's the same thesis
+      if (selectedThesis && selectedThesis.id === thesisId) {
+        setSelectedThesis(prev => prev ? { ...prev, status: 'COMPLETED' } : null);
+      }
+    } catch (error) {
+      console.error('Failed to complete thesis:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -437,6 +484,49 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
                   <Badge className={getStatusBadgeColor(selectedThesis.status)}>
                     {getStatusDisplayName(selectedThesis.status)}
                   </Badge>
+                </div>
+                <div className="flex space-x-2">
+                  {selectedThesis.status === 'PROPOSAL' && (
+                    <Button 
+                      onClick={() => handleStartThesis(selectedThesis.id)}
+                      disabled={isLoading}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isLoading ? 'Memproses...' : 'Mulai Bimbingan'}
+                    </Button>
+                  )}
+                  {selectedThesis.status !== 'COMPLETED' && (
+                    <AlertDialog open={showAccFinalDialog} onOpenChange={setShowAccFinalDialog}>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          disabled={isLoading}
+                          className="bg-green-600 hover:bg-green-700"
+                        >
+                          Acc Final
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Konfirmasi Penyelesaian Skripsi</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Apakah Anda yakin ingin menyelesaikan bimbingan skripsi ini? Tindakan ini akan menandai skripsi sebagai selesai.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isLoading}>
+                            Batal
+                          </AlertDialogCancel>
+                          <AlertDialogAction 
+                            onClick={() => handleCompleteThesis(selectedThesis.id)}
+                            disabled={isLoading}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            {isLoading ? 'Memproses...' : 'Ya, Selesaikan'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
               </div>
 
