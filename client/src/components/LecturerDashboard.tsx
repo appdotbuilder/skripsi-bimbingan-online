@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { trpc } from '@/utils/trpc';
 import { useState, useEffect, useCallback } from 'react';
 import type { 
@@ -225,6 +226,26 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
       }
     } catch (error) {
       console.error('Failed to complete thesis:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle status change via select
+  const handleStatusChange = async (newStatus: ThesisStatus) => {
+    if (!selectedThesis || !lecturer) return;
+    
+    setIsLoading(true);
+    try {
+      await trpc.updateThesis.mutate({
+        id: selectedThesis.id,
+        status: newStatus
+      });
+      await loadTheses(lecturer.id);
+      // Update selectedThesis to reflect the new status
+      setSelectedThesis(prev => prev ? { ...prev, status: newStatus } : null);
+    } catch (error) {
+      console.error('Failed to update thesis status:', error);
     } finally {
       setIsLoading(false);
     }
@@ -481,9 +502,31 @@ export function LecturerDashboard({ user }: LecturerDashboardProps) {
                   <h3 className="text-lg font-semibold">
                     Bimbingan: {selectedThesis.student?.full_name} - {selectedThesis.title}
                   </h3>
-                  <Badge className={getStatusBadgeColor(selectedThesis.status)}>
-                    {getStatusDisplayName(selectedThesis.status)}
-                  </Badge>
+                  <div className="flex items-center space-x-3 mt-2">
+                    <Badge className={getStatusBadgeColor(selectedThesis.status)}>
+                      {getStatusDisplayName(selectedThesis.status)}
+                    </Badge>
+                    {selectedThesis && (
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm font-medium text-gray-700">Ubah Status:</label>
+                        <Select 
+                          value={selectedThesis.status} 
+                          onValueChange={handleStatusChange}
+                          disabled={isLoading}
+                        >
+                          <SelectTrigger className="w-40">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="PROPOSAL">Proposal</SelectItem>
+                            <SelectItem value="IN_PROGRESS">Sedang Dikerjakan</SelectItem>
+                            <SelectItem value="REVISION">Revisi</SelectItem>
+                            <SelectItem value="COMPLETED">Selesai</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex space-x-2">
                   {selectedThesis.status === 'PROPOSAL' && (
